@@ -82,8 +82,6 @@ with io.open('config_secret.json') as cred:
 
 class FuseResult:
   EARTH_RADIUS = 63710000  # in meters
-  search_center = (37.786660, -122.396559)
-  degree = 0.005 / 2
 
   def __init__(self):
     pass
@@ -92,7 +90,8 @@ class FuseResult:
   def calculate_search_radius(cls, d):
     return 2 * math.pi / 180 * d * cls.EARTH_RADIUS
 
-  def get_yelp_result(center, search_radius_in_degree):
+  @classmethod
+  def get_yelp_result(cls, center, search_radius_in_degree):
     params = {
       'term': 'food',
       'latittude': center[0],
@@ -134,4 +133,4 @@ def hello_world():
 
 if __name__ == '__main__':
   # print()
-  app.run(debug=True)
+  app.run(host='0.0.0.0')
