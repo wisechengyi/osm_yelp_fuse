@@ -13,6 +13,8 @@ import json
 import math
 
 import overpass
+from flask import Flask
+from flask import request
 from yelp.client import Client
 from yelp.config import SEARCH_PATH
 from yelp.oauth1_authenticator import Oauth1Authenticator
@@ -111,12 +113,25 @@ class FuseResult:
     return api.Get(map_query)
 
   @classmethod
-  def fuse(cls, search_center, degree):
+  def fused_json(cls, search_center, degree):
     radius = degree / 2
     osm_result = cls.get_osm_result(search_center, radius)
     yelp_result = cls.get_yelp_result(search_center, radius)
 
-    return {'yelp': yelp_result, 'osm': osm_result}
+    return json.dumps({'yelp': yelp_result, 'osm': osm_result})
 
 
-print(FuseResult.fuse((37.786660, -122.396559), .005))
+app = Flask(__name__)
+
+
+@app.route('/')
+def hello_world():
+  lat = float(request.args.get('lat'))
+  lon = float(request.args.get('lon'))
+  degree = float(request.args.get('size'))
+  return FuseResult.fused_json((lat, lon), degree)
+
+
+if __name__ == '__main__':
+  # print()
+  app.run(debug=True)
