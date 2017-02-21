@@ -17,6 +17,7 @@ from yelp.client import Client
 from yelp.config import SEARCH_PATH
 from yelp.oauth1_authenticator import Oauth1Authenticator
 
+
 # Wrap the existing Client in order to preserve the raw json response.
 class CustomClient(Client):
   def __init__(self, *args, **kwargs):
@@ -70,43 +71,52 @@ class CustomClient(Client):
     )
 
 
-def calculate_search_radius(d):
-  return 2 * math.pi / 180 * d * EARTH_RADIUS
-
-
 # read API keys
 with io.open('config_secret.json') as cred:
   creds = json.load(cred)
   auth = Oauth1Authenticator(**creds)
   client = CustomClient(auth)
 
-EARTH_RADIUS = 63710000  # in meters
 
-search_center = (37.786660, -122.396559)
-degree = 0.005/2
+class FuseResult:
+  EARTH_RADIUS = 63710000  # in meters
+  search_center = (37.786660, -122.396559)
+  degree = 0.005 / 2
+
+  def __init__(self):
+    pass
+
+  @classmethod
+  def calculate_search_radius(cls, d):
+    return 2 * math.pi / 180 * d * cls.EARTH_RADIUS
+
+  def get_yelp_result(center, search_radius_in_degree):
+    params = {
+      'term': 'food',
+      'latittude': center[0],
+      'longitude': center[1],
+    }
+    response = client.my_search_by_bounding_box(center[0] - search_radius_in_degree,
+                                                center[1] - search_radius_in_degree,
+                                                center[0] + search_radius_in_degree,
+                                                center[1] + search_radius_in_degree,
+                                                **params)
+
+    return response
+
+  @classmethod
+  def get_osm_result(cls, center, radius):
+    api = overpass.API()
+    map_query = overpass.MapQuery(center[0] - radius, center[1] - radius, center[0] + radius, center[1] + radius)
+    return api.Get(map_query)
+
+  @classmethod
+  def fuse(cls, search_center, degree):
+    radius = degree / 2
+    osm_result = cls.get_osm_result(search_center, radius)
+    yelp_result = cls.get_yelp_result(search_center, radius)
+
+    return {'yelp': yelp_result, 'osm': osm_result}
 
 
-def get_yelp_result(center, search_radius_in_degree):
-  params = {
-    'term': 'food',
-    'latittude': center[0],
-    'longitude': center[1],
-  }
-  response = client.my_search_by_bounding_box(center[0] - search_radius_in_degree, center[1] - search_radius_in_degree,
-                                              center[0] + search_radius_in_degree, center[1] + search_radius_in_degree,
-                                              **params)
-
-  return response
-
-
-def get_osm_result(center):
-  api = overpass.API()
-  map_query = overpass.MapQuery(center[0] - degree, center[1] - degree, center[0] + degree, center[1] + degree)
-  return api.Get(map_query)
-
-
-osm_result = get_osm_result(search_center)
-yelp_result = get_yelp_result(search_center, degree)
-
-total_result = {'yelp': yelp_result, 'osm': osm_result}
-print(json.dumps(total_result))
+print(FuseResult.fuse((37.786660, -122.396559), .005))
